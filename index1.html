@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fast Food Simulator — ООП, лабораторная работа №1</title>
+  <link rel="stylesheet" href="style1.css">
+  <script src="script1.js" defer></script>
+</head>
+<body>
+  <header class="page-header">
+    <div>
+      <h1>Fast Food Simulator</h1>
+      <p class="subtitle">Модель работы ресторана с отдельными сотрудниками и очередями</p>
+    </div>
+    <div class="simulation-state">
+      <span id="stateDot" class="state-dot"></span>
+      <span id="simulationState">Остановлена</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel settings-panel" aria-labelledby="settingsTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Параметры</p>
+          <h2 id="settingsTitle">Настройки симуляции</h2>
+        </div>
+        <span class="tag">Всего персонала: <strong id="totalStaff">4</strong></span>
+      </div>
+
+      <div class="settings-grid">
+        <label class="field">
+          <span>Приход клиентов, сек.</span>
+          <input id="arrivalInput" type="number" min="0.2" max="3600" step="0.1" value="3">
+        </label>
+        <label class="field">
+          <span>Приготовление заказа, сек.</span>
+          <input id="cookInput" type="number" min="0.2" max="3600" step="0.1" value="4">
+        </label>
+        <label class="field">
+          <span>Кассиры</span>
+          <input id="cashierInput" type="number" min="1" max="10" step="1" value="1">
+        </label>
+        <label class="field">
+          <span>Повара</span>
+          <input id="cookersInput" type="number" min="1" max="10" step="1" value="2">
+        </label>
+        <label class="field">
+          <span>Сотрудники выдачи</span>
+          <input id="serversInput" type="number" min="1" max="10" step="1" value="1">
+        </label>
+      </div>
+      <p class="hint">Количество персонала можно изменить перед запуском или после остановки. Изменение параметров во время работы применяется при следующем запуске.</p>
+      <div class="button-row">
+        <button id="startBtn" class="button primary">▶ Запустить</button>
+        <button id="stopBtn" class="button secondary" disabled>■ Остановить</button>
+        <button id="resetBtn" class="button ghost">↺ Сбросить</button>
+      </div>
+      <p id="warning" class="warning" role="alert" aria-live="polite"></p>
+    </section>
+
+    <section class="stats-grid" aria-label="Общая статистика">
+      <article class="stat-card"><span>Клиенты пришли</span><strong id="statArrived">0</strong></article>
+      <article class="stat-card"><span>Заказы завершены</span><strong id="statCompleted">0</strong></article>
+      <article class="stat-card"><span>Ожидают заказа</span><strong id="statLine">0</strong></article>
+      <article class="stat-card"><span>Ожидают кухню</span><strong id="statKitchen">0</strong></article>
+      <article class="stat-card"><span>Ожидают выдачу</span><strong id="statPickup">0</strong></article>
+      <article class="stat-card"><span>В зале</span><strong id="statDining">0</strong></article>
+      <article class="stat-card"><span>Время работы</span><strong id="statTime">00:00</strong></article>
+    </section>
+
+    <section class="panel" aria-labelledby="flowTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Процесс обслуживания</p>
+          <h2 id="flowTitle">Зоны ресторана</h2>
+        </div>
+        <span class="hint inline-hint">FIFO — первым обслуживается тот, кто пришёл раньше</span>
+      </div>
+      <div class="zones-grid">
+        <article class="zone">
+          <div class="zone-title"><span class="zone-icon">👥</span><div><h3>Очередь клиентов</h3><p>Ожидают кассира</p></div></div>
+          <div class="zone-count"><strong id="lineCount">0</strong><span>чел.</span></div>
+          <div id="lineList" class="entity-list empty-state">Очередь пуста</div>
+        </article>
+        <article class="zone">
+          <div class="zone-title"><span class="zone-icon">🧾</span><div><h3>Приём заказа</h3><p>Кассиры оформляют заказ</p></div></div>
+          <div id="orderAreaList" class="entity-list empty-state">Нет активных заказов</div>
+        </article>
+        <article class="zone">
+          <div class="zone-title"><span class="zone-icon">👨‍🍳</span><div><h3>Кухня</h3><p>Приготовление и очередь</p></div></div>
+          <div class="subheading">Готовят сейчас</div>
+          <div id="cookingList" class="entity-list empty-state">Никто не готовит</div>
+          <div class="subheading">Ожидают приготовления</div>
+          <div id="kitchenQueueList" class="entity-list empty-state">Очередь пуста</div>
+        </article>
+        <article class="zone">
+          <div class="zone-title"><span class="zone-icon">🥡</span><div><h3>Выдача заказов</h3><p>Заказы ждут сотрудника выдачи</p></div></div>
+          <div class="subheading">Готовы к выдаче</div>
+          <div id="pickupList" class="entity-list empty-state">Нет готовых заказов</div>
+          <div class="subheading">Выдают сейчас</div>
+          <div id="servingList" class="entity-list empty-state">Нет активной выдачи</div>
+        </article>
+        <article class="zone">
+          <div class="zone-title"><span class="zone-icon">🍽️</span><div><h3>Зал</h3><p>Клиенты с полученными заказами</p></div></div>
+          <div class="zone-count"><strong id="diningCount">0</strong><span>чел.</span></div>
+          <div id="diningList" class="entity-list empty-state">Пока никого нет</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="staffTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Распределение нагрузки</p>
+          <h2 id="staffTitle">Персонал</h2>
+        </div>
+        <span class="tag"><span class="legend-dot busy"></span> занят <span class="legend-dot free"></span> свободен</span>
+      </div>
+      <div id="staffGrid" class="staff-grid"></div>
+      <p class="hint">Каждый сотрудник имеет одну специализацию и может выполнять только одну задачу одновременно. Свободный сотрудник не выполняет работу другого участка.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="ordersTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Полная история заказов</p>
+          <h2 id="ordersTitle">Заказы и статусы</h2>
+        </div>
+        <span id="ordersTotal" class="tag">0 заказов</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Заказ</th><th>Клиент</th><th>Статус</th><th>Сотрудник</th><th>Создан</th></tr></thead>
+          <tbody id="ordersTable"><tr><td colspan="5" class="table-empty">Заказов пока нет</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel log-panel" aria-labelledby="logTitle">
+      <div class="section-heading">
+        <div><p class="eyebrow">События</p><h2 id="logTitle">Журнал симуляции</h2></div>
+        <button id="clearLogBtn" class="button ghost small">Очистить журнал</button>
+      </div>
+      <ol id="eventLog" class="event-log"><li class="log-empty">События появятся после запуска.</li></ol>
+    </section>
+  </main>
+  <footer><span>Fast Food Simulator</span><span>Модель очередей и распределения задач</span></footer>
+</body>
+</html>
